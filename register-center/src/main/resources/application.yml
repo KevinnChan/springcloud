@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: register-center
+server:
+  port: 8889
+
+eureka:
+  client:
+    registerWithEureka: false #是否注册为服务
+    fetchRegistry: false #是否检索服务
+    serviceUrl:
+      defaultZone: http://${spring.cloud.client.ipAddress}:${server.port}/eureka
+  server:
+    waitTimeInMsWhenSyncEmpty: 0 #在Eureka服务器获取不到集群里对等服务器上的实例时，需要等待的时间，单位为毫秒
+    enable-self-preservation: true #关闭注册中心的保护机制，Eureka 会统计15分钟之内心跳失败的比例低于85%将会触发保护机制，不剔除服务提供者，如果关闭服务注册中心将不可用的实例正确剔除
+    eviction-interval-timer-in-ms: 5000 #扫描失效服务的间隔时间（缺省为60*1000ms）
+  instance:
+    lease-expiration-duration-in-seconds: 90 #定义服务失效的时间，单位：秒
+    lease-renewal-interval-in-seconds: 30 #定义服务续约任务（心跳）的调用间隔，单位：秒
+
+

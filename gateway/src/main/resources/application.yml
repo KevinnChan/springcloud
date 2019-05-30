@@ -7,3 +7,16 @@ eureka:
   client:
     serviceUrl:
        defaultZone: http://127.0.0.1:8889/eureka/
+
+zuul:
+  routes:
+    gateway-zuul:
+      path: /gw/**
+      serviceId: gateway-zuul
+
+
+
+
+management:
+  security:
+    enabled: false

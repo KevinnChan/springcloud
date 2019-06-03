@@ -1,6 +1,8 @@
 package com.kevin.gateway.config;
 
-import javax.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
 import javax.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.List;
@@ -8,6 +10,8 @@ import java.util.List;
 /**
  * Created by Kevin on 2019/5/31.
  */
+@Slf4j
+@Component
 public class DynamicFilterFileManager {
 	Thread poller;
 
@@ -24,7 +28,6 @@ public class DynamicFilterFileManager {
 		return INSTANCE;
 	}
 
-	@PostConstruct
 	public void init(int pollingIntervalSeconds) {
 		INSTANCE.pollingIntervalSeconds = pollingIntervalSeconds;
 		startPoller();
@@ -43,12 +46,13 @@ public class DynamicFilterFileManager {
 	}
 
 	void startPoller() {
+		log.info("DynamicGroovyFilterFileManager polling period is {} seconds", pollingIntervalSeconds);
 		poller = new Thread("DynamicGroovyFilterFileManagerPoller") {
 			public void run() {
 				while (bRunning) {
 					try {
 						sleep(pollingIntervalSeconds * 1000);
-						//manageFiles();
+						manageFiles();
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
@@ -57,6 +61,10 @@ public class DynamicFilterFileManager {
 		};
 		poller.setDaemon(true);
 		poller.start();
+	}
+
+	private void manageFiles() throws Exception {
+		DynamicFilterLoader.getInstance().putAllFilter(getAllFilter());
 	}
 
 	private List<GroovyZuulFilter> getAllFilter() {
@@ -75,10 +83,8 @@ public class DynamicFilterFileManager {
 				"import com.netflix.zuul.ZuulFilter;\n" +
 				"import com.netflix.zuul.context.RequestContext;\n" +
 				"import groovy.util.logging.Slf4j;\n" +
-				"import org.springframework.stereotype.Component;\n" +
 				"import javax.servlet.http.HttpServletRequest;\n" +
 				"@Slf4j\n" +
-				"@Component\n" +
 				"public class InputParamLogFilter extends ZuulFilter {\n" +
 				"\t@Override\n" +
 				"\tpublic String filterType() {\n" +
@@ -121,6 +127,7 @@ public class DynamicFilterFileManager {
 				"}\n";
 		groovyZuulFilter.setFilterName(name);
 		groovyZuulFilter.setFilterCode(code);
+		groovyZuulFilter.setFilterType("pre");
 		return groovyZuulFilter;
 	}
 }

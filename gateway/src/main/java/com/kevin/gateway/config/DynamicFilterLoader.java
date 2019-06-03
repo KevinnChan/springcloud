@@ -3,8 +3,9 @@ package com.kevin.gateway.config;
 import com.netflix.zuul.*;
 import com.netflix.zuul.filters.FilterRegistry;
 import com.netflix.zuul.groovy.GroovyCompiler;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
 
 import java.lang.reflect.Field;
@@ -14,11 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Created by Kevin on 2019/5/30.
  */
-@Slf4j
 public class DynamicFilterLoader {
+	private static final Logger log = LoggerFactory.getLogger(DynamicFilterLoader.class);
+
 	static final DynamicFilterLoader INSTANCE = new DynamicFilterLoader();
 
-	private final ConcurrentHashMap<String, ZuulFilter> activeFilter = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, Integer> activeFilterVersionContainer = new ConcurrentHashMap<>();
 
 	private DynamicFilterLoader() {
 	}
@@ -40,7 +42,6 @@ public class DynamicFilterLoader {
 		for (GroovyZuulFilter filter : filterList) {
 			activeFilter(filter);
 		}
-		//refreshOriginCache();
 	}
 
 	public void activeFilter(GroovyZuulFilter filter) throws Exception {
@@ -48,23 +49,29 @@ public class DynamicFilterLoader {
 			return;
 		}
 
-		log.info("active dynamic groovy filter {} - {}", filter.getApplicationName(), filter.getFilterName());
+		if (activeFilterVersionContainer.containsKey(filter.getFilterName())) {
+			if (activeFilterVersionContainer.get(filter.getFilterName()).intValue() == filter.getRevision().intValue()) {
+				return;
+			}
+		}
+
+		log.info("Active dynamic groovy filter {} - {} - {}", filter.getApplicationName(), filter.getFilterName(), filter.getRevision());
 		Class clz = dynamicCodeCompiler.compile(filter.getFilterCode(), filter.getFilterName());
 		ZuulFilter zuulFilter = FILTER_FACTORY.newInstance(clz);
 		filterRegistry.put(filter.getFilterName(), zuulFilter);
-		activeFilter.put(filter.getFilterName(), zuulFilter);
+		activeFilterVersionContainer.put(filter.getFilterName(), filter.getRevision());
 		refreshOriginCache(filter.getFilterType());
 	}
 
 	public void disableFilter(String filterName) throws Exception {
-		if (!activeFilter.containsKey(filterName)) {
+		if (!activeFilterVersionContainer.containsKey(filterName)) {
 			return;
 		}
 
-		log.info("disable dynamic groovy filter {}", filterName);
+		log.info("Disable dynamic groovy filter {}", filterName);
+		refreshOriginCache(filterRegistry.get(filterName).filterType());
 		filterRegistry.remove(filterName);
-		activeFilter.remove(filterName);
-		refreshOriginCache(activeFilter.get(filterName).filterType());
+		activeFilterVersionContainer.remove(filterName);
 	}
 
 	public void refreshOriginCache(String type) throws Exception {
